@@ -126,9 +126,12 @@ def enrich_csv_file(csv_path):
 
         print(f"    Progress: {len(enrichable)}/{len(enrichable)} ✓")
 
-    # Save
-    df.to_csv(csv_path, index=False)
-    print(f"\n✓ Saved enriched data to {csv_path}")
+        # Save after each location to preserve progress
+        df.to_csv(csv_path, index=False)
+        print(f"    Saved progress for {location_name}")
+
+    # Final save confirmation
+    print(f"\n✓ All locations in {csv_path} enriched and saved")
 
 def main():
     print("="*60)
@@ -147,7 +150,7 @@ def main():
 
     print(f"\nTotal records across all files: {total_records}")
 
-    input("\nPress Enter to start enrichment (this will take ~30-60 min)...")
+    print("\nStarting enrichment (this will take ~30-60 min)...")
 
     start_time = time.time()
 
