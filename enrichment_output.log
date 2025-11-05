@@ -1,0 +1,45 @@
+============================================================
+Enriching Cherry Blossom CSVs with Climate Data
+============================================================
+
+Found 9 CSV files
+  japan.csv: 6573 records
+  kyoto.csv: 836 records
+  liestal.csv: 132 records
+  meteoswiss.csv: 6642 records
+  nyc.csv: 1 records
+  south_korea.csv: 994 records
+  toronto.csv: 14 records
+  vancouver.csv: 4 records
+  washingtondc.csv: 104 records
+
+Total records across all files: 15300
+
+Starting enrichment (this will take ~30-60 min)...
+
+
+[File 1/9]
+
+============================================================
+Processing: japan.csv
+============================================================
+Total records: 6573
+Records >= 1940 (can be enriched): 6573
+
+  Japan/Wakkanai: 60 enrichable records
+    Progress: 5/60    Progress: 10/60    Progress: 15/60    Progress: 20/60    Progress: 25/60    Progress: 30/60    Progress: 35/60    Progress: 40/60    Progress: 45/60    Progress: 50/60    Progress: 55/60    Progress: 60/60    Progress: 60/60 ✓
+    Saved progress for Japan/Wakkanai
+
+  Japan/Rumoi: 53 enrichable records
+    Progress: 5/53    Progress: 10/53    Progress: 15/53    Progress: 20/53    Progress: 25/53    Progress: 30/53    Progress: 35/53    Progress: 40/53    Progress: 45/53    Progress: 50/53    Progress: 53/53    Progress: 53/53 ✓
+    Saved progress for Japan/Rumoi
+
+  Japan/Asahikawa: 69 enrichable records
+    Progress: 5/69    Progress: 10/69    Progress: 15/69    Progress: 20/69    Progress: 25/69    Progress: 30/69    Progress: 35/69    Progress: 40/69    Progress: 45/69    Progress: 50/69    Progress: 55/69    Progress: 60/69    Progress: 65/69    Progress: 69/69    Progress: 69/69 ✓
+    Saved progress for Japan/Asahikawa
+
+  Japan/Abashiri: 60 enrichable records
+    Progress: 5/60    Progress: 10/60    Progress: 15/60    Progress: 20/60    Progress: 25/60    Progress: 30/60    Progress: 35/60    Progress: 40/60    Progress: 45/60    Progress: 50/60    Progress: 55/60    Progress: 60/60    Progress: 60/60 ✓
+    Saved progress for Japan/Abashiri
+
+  Japan/Sapporo: 68 enrichable records
