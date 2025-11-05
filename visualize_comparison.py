@@ -172,11 +172,19 @@ def create_comparison_visualization(location='toronto'):
     ax8.legend(fontsize=10)
     ax8.grid(True, alpha=0.3, axis='y')
 
-    # Panel 9: Metrics comparison bar chart
+    # Panel 9: Metrics comparison bar chart (including bias)
     ax9 = plt.subplot(3, 3, 9)
-    metrics_names = ['MAE', 'RMSE']
-    baseline_vals = [metrics['metrics_baseline']['mae'], metrics['metrics_baseline']['rmse']]
-    climate_vals = [metrics['metrics_climate']['mae'], metrics['metrics_climate']['rmse']]
+    metrics_names = ['MAE', 'RMSE', '|Bias|']
+    baseline_vals = [
+        metrics['metrics_baseline']['mae'],
+        metrics['metrics_baseline']['rmse'],
+        abs(metrics['metrics_baseline'].get('bias_mean', 0))
+    ]
+    climate_vals = [
+        metrics['metrics_climate']['mae'],
+        metrics['metrics_climate']['rmse'],
+        abs(metrics['metrics_climate'].get('bias_mean', 0))
+    ]
 
     x = np.arange(len(metrics_names))
     width = 0.35
@@ -187,10 +195,10 @@ def create_comparison_visualization(location='toronto'):
                     color=COLORS['climate'], alpha=0.8, edgecolor='black')
 
     ax9.set_ylabel('Error (days)', fontsize=11, fontweight='bold')
-    ax9.set_title('Metrics Comparison', fontsize=12, fontweight='bold')
+    ax9.set_title('Metrics Comparison (Lower = Better)', fontsize=12, fontweight='bold')
     ax9.set_xticks(x)
     ax9.set_xticklabels(metrics_names, fontsize=11, fontweight='bold')
-    ax9.legend(fontsize=10)
+    ax9.legend(fontsize=10, loc='upper left')
     ax9.grid(True, alpha=0.3, axis='y')
 
     # Add value labels on bars
@@ -262,6 +270,8 @@ Performance:
   • MAE:  {metrics['metrics_baseline']['mae']:.2f} days
   • RMSE: {metrics['metrics_baseline']['rmse']:.2f} days
   • R²:   {metrics['metrics_baseline']['r2']:.4f}
+  • Bias (mean): {metrics['metrics_baseline'].get('bias_mean', 0):+.2f} days
+  • Bias (median): {metrics['metrics_baseline'].get('bias_median', 0):+.2f} days
 
 CLIMATE-ENHANCED MODEL (+ Weather Data)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -273,6 +283,8 @@ Performance:
   • MAE:  {metrics['metrics_climate']['mae']:.2f} days
   • RMSE: {metrics['metrics_climate']['rmse']:.2f} days
   • R²:   {metrics['metrics_climate']['r2']:.4f}
+  • Bias (mean): {metrics['metrics_climate'].get('bias_mean', 0):+.2f} days
+  • Bias (median): {metrics['metrics_climate'].get('bias_median', 0):+.2f} days
 
 IMPROVEMENT (Climate vs Baseline)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -305,6 +317,74 @@ Same train/test split ensures fair comparison.
 
     plt.close()
 
+def visualize_2026_forecasts(location='toronto'):
+    """Create visualization for 2026 forecasts."""
+    forecast_file = f'comparison_results/{location}_2026_forecasts.csv'
+
+    if not Path(forecast_file).exists():
+        print(f"No 2026 forecasts found for {location}")
+        return
+
+    forecast_df = pd.read_csv(forecast_file)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.suptitle(f'{location.title()} 2026 Cherry Blossom Forecast',
+                 fontsize=20, fontweight='bold')
+
+    # Panel 1: Bar chart of forecasts
+    colors_map = {2025: '#2E8B57', 2024: '#4682B4', 2023: '#DAA520'}
+    colors = [colors_map[y] for y in forecast_df['climate_source_year']]
+
+    ax1.bar(forecast_df['climate_source_year'].astype(str) + ' Climate',
+            forecast_df['predicted_doy'], color=colors, alpha=0.8, edgecolor='black', linewidth=2)
+    ax1.set_ylabel('Predicted Bloom Day of Year', fontsize=13, fontweight='bold')
+    ax1.set_xlabel('Climate Data Source', fontsize=13, fontweight='bold')
+    ax1.set_title('2026 Forecasts Using Different Climate Years', fontsize=14, fontweight='bold')
+    ax1.grid(True, alpha=0.3, axis='y')
+
+    # Add value labels
+    for i, row in forecast_df.iterrows():
+        ax1.text(i, row['predicted_doy'] + 1, f"DOY {row['predicted_doy']:.0f}\n{row['predicted_date']}",
+                ha='center', fontsize=11, fontweight='bold')
+
+    # Add mean line
+    mean_doy = forecast_df['predicted_doy'].mean()
+    ax1.axhline(mean_doy, color='red', linestyle='--', linewidth=2, label=f'Mean: DOY {mean_doy:.0f}')
+    ax1.legend(fontsize=11)
+
+    # Panel 2: Climate conditions comparison
+    ax2_data = forecast_df.set_index('climate_source_year')
+
+    x = np.arange(len(forecast_df))
+    width = 0.2
+
+    # Normalize for visualization
+    spring_temp_norm = ax2_data['spring_temp'] / ax2_data['spring_temp'].max() * 100
+    spring_gdd_norm = ax2_data['spring_gdd'] / ax2_data['spring_gdd'].max() * 100
+    chill_norm = ax2_data['winter_chill_days'] / ax2_data['winter_chill_days'].max() * 100
+    precip_norm = ax2_data['spring_precip'] / ax2_data['spring_precip'].max() * 100
+
+    ax2.bar(x - 1.5*width, spring_temp_norm, width, label='Spring Temp', alpha=0.8, edgecolor='black')
+    ax2.bar(x - 0.5*width, spring_gdd_norm, width, label='Spring GDD', alpha=0.8, edgecolor='black')
+    ax2.bar(x + 0.5*width, chill_norm, width, label='Winter Chill', alpha=0.8, edgecolor='black')
+    ax2.bar(x + 1.5*width, precip_norm, width, label='Spring Precip', alpha=0.8, edgecolor='black')
+
+    ax2.set_ylabel('Normalized Value (% of max)', fontsize=13, fontweight='bold')
+    ax2.set_xlabel('Climate Source Year', fontsize=13, fontweight='bold')
+    ax2.set_title('Climate Conditions Comparison', fontsize=14, fontweight='bold')
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(ax2_data.index.astype(str), fontsize=12, fontweight='bold')
+    ax2.legend(fontsize=10)
+    ax2.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+
+    output_path = f'comparison_results/{location}_2026_forecast_visual.png'
+    plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+    print(f"✓ 2026 forecast visualization saved: {output_path}")
+
+    plt.close()
+
 if __name__ == '__main__':
     location = 'toronto'
 
@@ -316,12 +396,20 @@ if __name__ == '__main__':
         create_comparison_visualization(location)
         create_metrics_summary(location)
 
+        # Check if 2026 forecasts exist and visualize them
+        forecast_file = f'comparison_results/{location}_2026_forecasts.csv'
+        if Path(forecast_file).exists():
+            print("\nCreating 2026 forecast visualization...")
+            visualize_2026_forecasts(location)
+
         print("\n" + "="*70)
         print("✓ Visualization complete!")
         print("="*70)
         print(f"\nGenerated files:")
         print(f"  - comparison_results/{location}_comparison_visual.png")
         print(f"  - comparison_results/{location}_summary.png")
+        if Path(forecast_file).exists():
+            print(f"  - comparison_results/{location}_2026_forecast_visual.png")
 
     except FileNotFoundError as e:
         print(f"\n✗ Error: Comparison results not found for {location}")

@@ -107,19 +107,26 @@ def run_tabpfn_prediction(X_train, y_train, X_test, y_test, description, max_tra
     print("✓ Predictions complete")
 
     # Calculate metrics
+    errors = y_test - y_pred
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     r2 = r2_score(y_test, y_pred)
+    bias_mean = np.mean(errors)
+    bias_median = np.median(errors)
 
     print(f"\nResults:")
-    print(f"  MAE:  {mae:.2f} days")
-    print(f"  RMSE: {rmse:.2f} days")
-    print(f"  R²:   {r2:.4f}")
+    print(f"  MAE:         {mae:.2f} days")
+    print(f"  RMSE:        {rmse:.2f} days")
+    print(f"  R²:          {r2:.4f}")
+    print(f"  Bias (mean): {bias_mean:+.2f} days")
+    print(f"  Bias (med):  {bias_median:+.2f} days")
 
     metrics = {
         'mae': float(mae),
         'rmse': float(rmse),
         'r2': float(r2),
+        'bias_mean': float(bias_mean),
+        'bias_median': float(bias_median),
         'n_train': len(X_train_sampled),
         'n_test': len(X_test)
     }
@@ -224,19 +231,25 @@ def compare_baseline_vs_climate(target_location='toronto', max_train_samples=100
     improvement_r2 = metrics_climate['r2'] - metrics_baseline['r2']
 
     print(f"\nBASELINE Performance:")
-    print(f"  MAE:  {metrics_baseline['mae']:.2f} days")
-    print(f"  RMSE: {metrics_baseline['rmse']:.2f} days")
-    print(f"  R²:   {metrics_baseline['r2']:.4f}")
+    print(f"  MAE:         {metrics_baseline['mae']:.2f} days")
+    print(f"  RMSE:        {metrics_baseline['rmse']:.2f} days")
+    print(f"  R²:          {metrics_baseline['r2']:.4f}")
+    print(f"  Bias (mean): {metrics_baseline['bias_mean']:+.2f} days")
+    print(f"  Bias (med):  {metrics_baseline['bias_median']:+.2f} days")
 
     print(f"\nCLIMATE-ENHANCED Performance:")
-    print(f"  MAE:  {metrics_climate['mae']:.2f} days")
-    print(f"  RMSE: {metrics_climate['rmse']:.2f} days")
-    print(f"  R²:   {metrics_climate['r2']:.4f}")
+    print(f"  MAE:         {metrics_climate['mae']:.2f} days")
+    print(f"  RMSE:        {metrics_climate['rmse']:.2f} days")
+    print(f"  R²:          {metrics_climate['r2']:.4f}")
+    print(f"  Bias (mean): {metrics_climate['bias_mean']:+.2f} days")
+    print(f"  Bias (med):  {metrics_climate['bias_median']:+.2f} days")
 
     print(f"\nIMPROVEMENT (Climate-Enhanced vs Baseline):")
     print(f"  MAE:  {improvement_mae:+.2f} days ({improvement_mae/metrics_baseline['mae']*100:+.1f}%)")
     print(f"  RMSE: {improvement_rmse:+.2f} days ({improvement_rmse/metrics_baseline['rmse']*100:+.1f}%)")
     print(f"  R²:   {improvement_r2:+.4f} ({improvement_r2/abs(metrics_baseline['r2'])*100:+.1f}%)")
+    print(f"  Bias (mean): {metrics_baseline['bias_mean'] - metrics_climate['bias_mean']:+.2f} days")
+    print(f"  Bias (med):  {metrics_baseline['bias_median'] - metrics_climate['bias_median']:+.2f} days")
 
     if has_climate_features:
         if improvement_mae > 0:
@@ -297,9 +310,157 @@ def compare_baseline_vs_climate(target_location='toronto', max_train_samples=100
         'comparison_data': comparison_data
     }
 
+def generate_2026_forecasts(target_location='toronto', all_data=None, train_clean_climate=None,
+                           model_climate=None, features_climate=None):
+    """
+    Generate 2026 forecasts using climate data from 2025, 2024, and 2023.
+
+    Returns:
+        DataFrame with 3 forecast scenarios
+    """
+    print(f"\n{'='*70}")
+    print("2026 FORECASTS (Using Historical Climate Data)")
+    print(f"{'='*70}")
+
+    # Get target location data
+    target_mask = all_data['location'].str.lower().str.contains(target_location, na=False)
+    target_data = all_data[target_mask].copy()
+
+    if len(target_data) == 0:
+        print(f"No data found for {target_location}")
+        return None
+
+    # Get lat, lon, alt for the target location
+    lat = target_data['lat'].iloc[0]
+    lon = target_data['long'].iloc[0]
+    alt = target_data['alt'].iloc[0]
+
+    # Get climate data from 2025, 2024, 2023
+    forecasts = []
+
+    for ref_year in [2025, 2024, 2023]:
+        ref_data = target_data[target_data['year'] == ref_year]
+
+        if len(ref_data) == 0 or pd.isna(ref_data['spring_temp'].iloc[0]):
+            print(f"  Warning: No climate data for {ref_year}, skipping this forecast")
+            continue
+
+        # Create 2026 prediction using ref_year climate
+        forecast_row = {
+            'year': 2026,
+            'lat': lat,
+            'lon': lon,
+            'alt': alt,
+            'spring_temp': ref_data['spring_temp'].iloc[0],
+            'spring_gdd': ref_data['spring_gdd'].iloc[0],
+            'winter_chill_days': ref_data['winter_chill_days'].iloc[0],
+            'spring_precip': ref_data['spring_precip'].iloc[0],
+            'climate_source_year': ref_year
+        }
+
+        # Make prediction
+        X_forecast = np.array([[
+            lat, lon, alt, 2026,
+            forecast_row['spring_temp'],
+            forecast_row['spring_gdd'],
+            forecast_row['winter_chill_days'],
+            forecast_row['spring_precip']
+        ]])
+
+        pred_doy = model_climate.predict(X_forecast)[0]
+        forecast_row['predicted_doy'] = pred_doy
+
+        # Convert DOY to date
+        from datetime import datetime, timedelta
+        forecast_date = datetime(2026, 1, 1) + timedelta(days=int(pred_doy) - 1)
+        forecast_row['predicted_date'] = forecast_date.strftime('%Y-%m-%d')
+
+        forecasts.append(forecast_row)
+
+        print(f"\n  Using {ref_year} climate data:")
+        print(f"    Spring temp: {forecast_row['spring_temp']:.2f}°C")
+        print(f"    Spring GDD: {forecast_row['spring_gdd']:.1f}")
+        print(f"    Winter chill days: {forecast_row['winter_chill_days']:.0f}")
+        print(f"    Spring precip: {forecast_row['spring_precip']:.1f}mm")
+        print(f"    → Predicted DOY: {pred_doy:.1f} ({forecast_row['predicted_date']})")
+
+    if not forecasts:
+        print("\n  No forecasts could be generated (missing climate data)")
+        return None
+
+    forecast_df = pd.DataFrame(forecasts)
+
+    # Save forecasts
+    os.makedirs('comparison_results', exist_ok=True)
+    output_csv = f'comparison_results/{target_location}_2026_forecasts.csv'
+    forecast_df.to_csv(output_csv, index=False)
+    print(f"\n✓ Saved 2026 forecasts to: {output_csv}")
+
+    # Summary
+    print(f"\n{'='*70}")
+    print("2026 FORECAST SUMMARY")
+    print(f"{'='*70}")
+    mean_pred = forecast_df['predicted_doy'].mean()
+    std_pred = forecast_df['predicted_doy'].std()
+    print(f"Mean prediction: DOY {mean_pred:.1f} (±{std_pred:.1f} days)")
+    print(f"Range: DOY {forecast_df['predicted_doy'].min():.1f} - {forecast_df['predicted_doy'].max():.1f}")
+    print(f"Date range: {forecast_df['predicted_date'].min()} to {forecast_df['predicted_date'].max()}")
+
+    return forecast_df
+
 if __name__ == "__main__":
     # Run comparison for Toronto
     results = compare_baseline_vs_climate(
         target_location='toronto',
         max_train_samples=10000
     )
+
+    # Generate 2026 forecasts if climate model available
+    if 'comparison_data' in results and results['comparison_data']['has_climate_features']:
+        print("\n" + "="*70)
+        print("Generating 2026 forecasts...")
+        print("="*70)
+
+        # Need to reload data and retrain to get the model
+        from data_utils import load_all_data
+        all_data = load_all_data(include_city_files=True)
+        target_location = 'toronto'
+
+        target_mask = all_data['location'].str.lower().str.contains(target_location, na=False)
+        train_data = all_data[~target_mask].copy()
+
+        # Prepare climate training data
+        base_features = ['lat', 'long', 'alt', 'year']
+        climate_features = ['spring_temp', 'spring_gdd', 'winter_chill_days', 'spring_precip']
+        all_features = base_features + climate_features
+
+        train_clean = train_data.dropna(subset=all_features).copy()
+        X_train = train_clean[all_features].values
+        y_train = train_clean['bloom_doy'].values
+
+        # Sample if needed
+        if len(X_train) > 10000:
+            indices = np.random.RandomState(42).choice(len(X_train), 10000, replace=False)
+            X_train = X_train[indices]
+            y_train = y_train[indices]
+
+        # Train model
+        print("Training model for 2026 forecasts...")
+        model_climate = TabPFNRegressor(
+            n_estimators=8,
+            device='auto',
+            random_state=42,
+            ignore_pretraining_limits=True
+        )
+        model_climate.fit(X_train, y_train)
+
+        # Generate forecasts
+        forecast_df = generate_2026_forecasts(
+            target_location=target_location,
+            all_data=all_data,
+            train_clean_climate=train_clean,
+            model_climate=model_climate,
+            features_climate=all_features
+        )
+    else:
+        print("\n⚠️  Cannot generate 2026 forecasts: Climate features not available yet")
