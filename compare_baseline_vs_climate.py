@@ -464,3 +464,26 @@ if __name__ == "__main__":
         )
     else:
         print("\n⚠️  Cannot generate 2026 forecasts: Climate features not available yet")
+
+    # Auto-generate presentation visuals
+    print("\n" + "="*70)
+    print("Generating Presentation Visuals...")
+    print("="*70)
+
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['python3', 'create_hackathon_visuals.py'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if result.returncode == 0:
+            print(result.stdout)
+            print("\n✓ Presentation visuals automatically generated!")
+        else:
+            print(f"Warning: Visualization generation had errors:\n{result.stderr}")
+    except Exception as e:
+        print(f"Warning: Could not auto-generate visuals: {e}")
+        print("You can manually run: python3 create_hackathon_visuals.py")
