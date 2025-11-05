@@ -47,11 +47,21 @@ def benchmark_tabpfn(X_train, y_train, X_test, y_test, test_description="Test Se
     print(f"Training samples: {len(X_train)}")
     print(f"Test samples: {len(X_test)}")
 
+    # Sample training data if needed (TabPFN officially supports up to 10k samples)
+    if len(X_train) > 10000:
+        print(f"Note: Sampling 10,000 training samples (TabPFN limit)")
+        indices = np.random.RandomState(42).choice(len(X_train), 10000, replace=False)
+        X_train = X_train[indices]
+        y_train = y_train[indices]
+        print(f"Using {len(X_train)} training samples")
+
     # Initialize TabPFN regressor
+    # Note: ignore_pretraining_limits allows CPU usage with >1000 samples
     model = TabPFNRegressor(
         n_estimators=8,
         device='auto',
-        random_state=42
+        random_state=42,
+        ignore_pretraining_limits=True
     )
 
     # Train
@@ -132,10 +142,20 @@ def main():
     from tabpfn import TabPFNRegressor
 
     print(f"\nTraining on {len(X_train_toronto)} samples from other locations...")
+
+    # For Toronto prediction, we want to use all available data
+    # TabPFN officially supports up to 10k samples, but can handle more with flag
+    if len(X_train_toronto) > 10000:
+        print(f"Note: Using ignore_pretraining_limits=True to leverage all {len(X_train_toronto)} samples")
+        use_all_data = True
+    else:
+        use_all_data = False
+
     model_toronto = TabPFNRegressor(
         n_estimators=8,
         device='auto',
-        random_state=42
+        random_state=42,
+        ignore_pretraining_limits=use_all_data
     )
     model_toronto.fit(X_train_toronto, y_train_toronto)
 
